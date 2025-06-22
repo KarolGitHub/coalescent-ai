@@ -10,6 +10,9 @@ const io = new Server(fastify.server);
 
 io.on('connection', (socket: Socket) => {
   console.log('a user connected');
+  socket.on('ping', () => {
+    socket.emit('pong');
+  });
   socket.on('disconnect', () => {
     console.log('user disconnected');
   });
