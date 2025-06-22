@@ -1,5 +1,6 @@
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import { Server, Socket } from 'socket.io';
+import { trpcPlugin } from './trpc';
 
 const fastify = Fastify({
   logger: true,
@@ -17,6 +18,8 @@ io.on('connection', (socket: Socket) => {
 fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
   return { hello: 'world' };
 });
+
+fastify.register(trpcPlugin, { prefix: '/trpc' });
 
 const start = async () => {
   try {
