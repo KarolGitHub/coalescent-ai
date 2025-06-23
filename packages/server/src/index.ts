@@ -1,23 +1,17 @@
-import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
+import { fastify as Fastify } from 'fastify';
 import { Server, Socket } from 'socket.io';
 import {
   fastifyTRPCPlugin,
   FastifyTRPCPluginOptions,
 } from '@trpc/server/adapters/fastify';
-import { appRouter, createContext } from './trpc';
+import { appRouter, createContext } from './trpc.js';
 import cors from '@fastify/cors';
 
-const fastify = Fastify({
+const server = Fastify({
   logger: true,
 });
 
-// Register CORS
-fastify.register(cors, {
-  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-  credentials: true,
-});
-
-const io = new Server(fastify.server);
+const io = new Server(server.server);
 
 io.on('connection', (socket: Socket) => {
   console.log('a user connected');
@@ -29,24 +23,34 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
+server.get('/', async (request, reply) => {
   return { hello: 'world' };
-});
-
-fastify.register(fastifyTRPCPlugin, {
-  prefix: '/trpc',
-  trpcOptions: {
-    router: appRouter,
-    createContext,
-  } satisfies FastifyTRPCPluginOptions<typeof appRouter>['trpcOptions'],
 });
 
 const start = async () => {
   try {
-    await fastify.listen({ port: 3001 });
+    // Register plugins
+    await server.register(cors, {
+      origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+      credentials: true,
+    });
+
+    await server.register(fastifyTRPCPlugin, {
+      prefix: '/trpc',
+      trpcOptions: {
+        router: appRouter,
+        createContext,
+      } satisfies FastifyTRPCPluginOptions<typeof appRouter>['trpcOptions'],
+    });
+
+    await server.listen({
+      port: 3001,
+      host: '0.0.0.0', // Listen on all available network interfaces
+    });
   } catch (err) {
-    fastify.log.error(err);
+    server.log.error(err);
     process.exit(1);
   }
 };
+
 start();
