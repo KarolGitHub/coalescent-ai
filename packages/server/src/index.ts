@@ -11,15 +11,32 @@ const server = Fastify({
   logger: true,
 });
 
-const io = new Server(server.server);
+const io = new Server(server.server, {
+  cors: { origin: '*' },
+});
 
+// Handle Socket.IO connections
 io.on('connection', (socket: Socket) => {
-  console.log('a user connected');
-  socket.on('ping', () => {
-    socket.emit('pong');
+  // Join a whiteboard room
+  socket.on('join', ({ boardId }) => {
+    socket.join(boardId);
   });
+
+  // Leave a whiteboard room
+  socket.on('leave', ({ boardId }) => {
+    socket.leave(boardId);
+  });
+
+  // Relay drawing events to others in the room
+  socket.on('draw-event', (event) => {
+    if (event.boardId) {
+      socket.to(event.boardId).emit('draw-event', event);
+    }
+  });
+
+  // (Optional) Handle disconnects for presence
   socket.on('disconnect', () => {
-    console.log('user disconnected');
+    // You can broadcast a presence update here if needed
   });
 });
 
