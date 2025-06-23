@@ -61,9 +61,16 @@ export default function WhiteboardListPage() {
     setCreating(true);
     setError(null);
     const supabase = createSupabaseBrowserClient();
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      setError('You must be signed in to create a whiteboard.');
+      setCreating(false);
+      return;
+    }
     const { data, error } = await supabase
       .from('whiteboards')
-      .insert([{ name }])
+      .insert([{ name, created_by: userId }])
       .select('id, name, created_at')
       .single();
     if (error) setError(error.message);
