@@ -1,4 +1,19 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
+import { Slider } from '@/components/ui/slider';
+import {
+  Tooltip,
+  TooltipTrigger,
+  TooltipContent,
+  TooltipProvider,
+} from '@/components/ui/tooltip';
 
 type Tool = 'pen' | 'eraser' | 'line';
 
@@ -141,51 +156,105 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
 
   return (
     <div className='flex flex-col items-center gap-4'>
-      <div className='flex items-center gap-2 mb-2'>
-        <label className='font-medium'>Tool:</label>
-        <button
-          className={`px-2 py-1 rounded ${tool === 'pen' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-          onClick={() => setTool('pen')}
-        >
-          Pen
-        </button>
-        <button
-          className={`px-2 py-1 rounded ${tool === 'eraser' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-          onClick={() => setTool('eraser')}
-        >
-          Eraser
-        </button>
-        <button
-          className={`px-2 py-1 rounded ${tool === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
-          onClick={() => setTool('line')}
-        >
-          Line
-        </button>
-        <label className='ml-4 font-medium'>Color:</label>
-        <input
-          type='color'
-          value={color}
-          onChange={(e) => setColor(e.target.value)}
-          className='w-8 h-8 p-0 border-none bg-transparent'
-          disabled={tool === 'eraser'}
-        />
-        <label className='ml-4 font-medium'>Size:</label>
-        <input
-          type='range'
-          min={1}
-          max={20}
-          value={brushSize}
-          onChange={(e) => setBrushSize(Number(e.target.value))}
-          className='w-24'
-        />
-        <span className='ml-2 w-8 text-center'>{brushSize}</span>
-        <button
-          onClick={clearCanvas}
-          className='ml-4 px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600'
-        >
-          Clear
-        </button>
-      </div>
+      <TooltipProvider>
+        <Card className='mb-2 w-fit p-2 shadow-md'>
+          <CardContent className='flex items-center gap-2 p-0'>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={tool === 'pen' ? 'default' : 'outline'}
+                  size='icon'
+                  onClick={() => setTool('pen')}
+                  aria-label='Pen'
+                >
+                  ✏️
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Pen</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={tool === 'eraser' ? 'default' : 'outline'}
+                  size='icon'
+                  onClick={() => setTool('eraser')}
+                  aria-label='Eraser'
+                >
+                  🧽
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Eraser</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={tool === 'line' ? 'default' : 'outline'}
+                  size='icon'
+                  onClick={() => setTool('line')}
+                  aria-label='Line'
+                >
+                  📏
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Line</TooltipContent>
+            </Tooltip>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant='outline'
+                  className='ml-2'
+                  disabled={tool === 'eraser'}
+                >
+                  <span
+                    className='w-4 h-4 inline-block rounded-full border'
+                    style={{ background: color, borderColor: color }}
+                  />
+                  <span className='ml-2'>Color</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem asChild>
+                  <input
+                    type='color'
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className='w-8 h-8 p-0 border-none bg-transparent cursor-pointer'
+                  />
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant='outline' className='ml-2'>
+                  <span className='w-4 h-4 inline-block rounded-full bg-gray-300 mr-2' />
+                  Size: {brushSize}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className='p-4 w-48'>
+                <Slider
+                  min={1}
+                  max={20}
+                  value={[brushSize]}
+                  onValueChange={([v]) => setBrushSize(v)}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant='destructive'
+                  className='ml-4'
+                  onClick={clearCanvas}
+                  aria-label='Clear'
+                >
+                  Clear
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Clear the board</TooltipContent>
+            </Tooltip>
+          </CardContent>
+        </Card>
+      </TooltipProvider>
       <div
         style={{
           width: 800,
