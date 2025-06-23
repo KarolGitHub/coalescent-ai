@@ -5,6 +5,7 @@ import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { TrpcProvider } from '@/lib/trpcProvider';
 import { Toaster } from '@/components/ui/toast';
+import { AppShell } from '@/components/AppShell';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -31,7 +32,7 @@ export default function RootLayout({
     <html lang='en' suppressHydrationWarning>
       <body
         suppressHydrationWarning
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background`}
       >
         <TrpcProvider>
           <ThemeProvider
@@ -40,10 +41,12 @@ export default function RootLayout({
             enableSystem
             disableTransitionOnChange
           >
-            <AuthProvider>{children}</AuthProvider>
+            <AuthProvider>
+              <AppShell>{children}</AppShell>
+              <Toaster />
+            </AuthProvider>
           </ThemeProvider>
         </TrpcProvider>
-        <Toaster />
       </body>
     </html>
   );
