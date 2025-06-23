@@ -1,18 +1,25 @@
 import React, { useRef, useState, useEffect } from 'react';
 
-interface WhiteboardCanvasProps {
-  boardId: string;
-}
+type Tool = 'pen' | 'eraser' | 'line';
 
-export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
-  boardId,
-}) => {
+export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [drawing, setDrawing] = useState(false);
+  const [tool, setTool] = useState<Tool>('pen');
   const [color, setColor] = useState('#222');
+  const [brushSize, setBrushSize] = useState(3);
   const [lastPoint, setLastPoint] = useState<{ x: number; y: number } | null>(
     null
   );
+  const [lineStart, setLineStart] = useState<{ x: number; y: number } | null>(
+    null
+  );
+  const [previewLine, setPreviewLine] = useState<{
+    x1: number;
+    y1: number;
+    x2: number;
+    y2: number;
+  } | null>(null);
 
   // Resize canvas to fit parent
   useEffect(() => {
@@ -46,19 +53,31 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
   };
 
   const startDrawing = (e: React.MouseEvent | React.TouchEvent) => {
-    setDrawing(true);
-    setLastPoint(getPos(e));
+    if (tool === 'line') {
+      const { x, y } = getPos(e);
+      setLineStart({ x, y });
+      setPreviewLine(null);
+    } else {
+      setDrawing(true);
+      setLastPoint(getPos(e));
+    }
   };
 
   const draw = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!drawing) return;
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!ctx) return;
     const { x, y } = getPos(e);
+    if (tool === 'line') {
+      if (lineStart) {
+        setPreviewLine({ x1: lineStart.x, y1: lineStart.y, x2: x, y2: y });
+      }
+      return;
+    }
+    if (!drawing) return;
     if (lastPoint) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = tool === 'eraser' ? '#fff' : color;
+      ctx.lineWidth = brushSize;
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(lastPoint.x, lastPoint.y);
@@ -68,7 +87,23 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     setLastPoint({ x, y });
   };
 
-  const stopDrawing = () => {
+  const stopDrawing = (e?: React.MouseEvent | React.TouchEvent) => {
+    if (tool === 'line' && lineStart && e) {
+      const canvas = canvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (!ctx) return;
+      const { x, y } = getPos(e);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(lineStart.x, lineStart.y);
+      ctx.lineTo(x, y);
+      ctx.stroke();
+      setLineStart(null);
+      setPreviewLine(null);
+      return;
+    }
     setDrawing(false);
     setLastPoint(null);
   };
@@ -81,16 +116,69 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
     }
   };
 
+  // Draw preview line
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx) return;
+    if (previewLine) {
+      // Save current canvas
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(imageData, 0, 0);
+      // Draw preview line
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = brushSize;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(previewLine.x1, previewLine.y1);
+      ctx.lineTo(previewLine.x2, previewLine.y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+    }
+  }, [previewLine, color, brushSize]);
+
   return (
     <div className='flex flex-col items-center gap-4'>
       <div className='flex items-center gap-2 mb-2'>
-        <label className='font-medium'>Pen Color:</label>
+        <label className='font-medium'>Tool:</label>
+        <button
+          className={`px-2 py-1 rounded ${tool === 'pen' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          onClick={() => setTool('pen')}
+        >
+          Pen
+        </button>
+        <button
+          className={`px-2 py-1 rounded ${tool === 'eraser' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          onClick={() => setTool('eraser')}
+        >
+          Eraser
+        </button>
+        <button
+          className={`px-2 py-1 rounded ${tool === 'line' ? 'bg-blue-500 text-white' : 'bg-gray-200'}`}
+          onClick={() => setTool('line')}
+        >
+          Line
+        </button>
+        <label className='ml-4 font-medium'>Color:</label>
         <input
           type='color'
           value={color}
           onChange={(e) => setColor(e.target.value)}
           className='w-8 h-8 p-0 border-none bg-transparent'
+          disabled={tool === 'eraser'}
         />
+        <label className='ml-4 font-medium'>Size:</label>
+        <input
+          type='range'
+          min={1}
+          max={20}
+          value={brushSize}
+          onChange={(e) => setBrushSize(Number(e.target.value))}
+          className='w-24'
+        />
+        <span className='ml-2 w-8 text-center'>{brushSize}</span>
         <button
           onClick={clearCanvas}
           className='ml-4 px-3 py-1 rounded bg-red-500 text-white hover:bg-red-600'
@@ -115,7 +203,7 @@ export const WhiteboardCanvas: React.FC<WhiteboardCanvasProps> = ({
             width: '100%',
             height: '100%',
             display: 'block',
-            cursor: 'crosshair',
+            cursor: tool === 'eraser' ? 'cell' : 'crosshair',
           }}
           onMouseDown={startDrawing}
           onMouseMove={draw}
