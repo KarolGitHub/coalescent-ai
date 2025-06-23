@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -14,10 +14,24 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '@/components/ui/tooltip';
+import { createSupabaseBrowserClient } from '@/lib/supabase';
+import { io, Socket } from 'socket.io-client';
 
 type Tool = 'pen' | 'eraser' | 'line';
 
-export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
+type DrawEvent = {
+  type: 'draw' | 'erase' | 'line' | 'clear';
+  tool: Tool;
+  color: string;
+  brushSize: number;
+  points: { x: number; y: number }[];
+  boardId: string;
+  userId: string;
+};
+
+export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
+  boardId,
+}) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [drawing, setDrawing] = useState(false);
   const [tool, setTool] = useState<Tool>('pen');
@@ -35,6 +49,37 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
     x2: number;
     y2: number;
   } | null>(null);
+  const socketRef = useRef<Socket | null>(null);
+  const userIdRef = useRef<string>('');
+
+  // Get user ID from Supabase
+  useEffect(() => {
+    const getUser = async () => {
+      const supabase = createSupabaseBrowserClient();
+      const { data } = await supabase.auth.getUser();
+      userIdRef.current = data.user?.id || '';
+    };
+    getUser();
+  }, []);
+
+  // Socket.IO connection
+  useEffect(() => {
+    const socket = io('/', { transports: ['websocket'] }); // Change URL if needed
+    socketRef.current = socket;
+    socket.emit('join', { boardId });
+
+    socket.on('draw-event', (event: DrawEvent) => {
+      // Ignore own events
+      if (event.userId === userIdRef.current) return;
+      handleRemoteDrawEvent(event);
+    });
+
+    return () => {
+      socket.emit('leave', { boardId });
+      socket.disconnect();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardId]);
 
   // Resize canvas to fit parent
   useEffect(() => {
@@ -98,6 +143,14 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
       ctx.moveTo(lastPoint.x, lastPoint.y);
       ctx.lineTo(x, y);
       ctx.stroke();
+      emitDrawEvent({
+        type: tool === 'eraser' ? 'erase' : 'draw',
+        tool,
+        color,
+        brushSize,
+        points: [lastPoint, { x, y }],
+        boardId,
+      });
     }
     setLastPoint({ x, y });
   };
@@ -115,6 +168,14 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
       ctx.moveTo(lineStart.x, lineStart.y);
       ctx.lineTo(x, y);
       ctx.stroke();
+      emitDrawEvent({
+        type: 'line',
+        tool,
+        color,
+        brushSize,
+        points: [lineStart, { x, y }],
+        boardId,
+      });
       setLineStart(null);
       setPreviewLine(null);
       return;
@@ -128,6 +189,14 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
     const ctx = canvas?.getContext('2d');
     if (canvas && ctx) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      emitDrawEvent({
+        type: 'clear',
+        tool,
+        color,
+        brushSize,
+        points: [],
+        boardId,
+      });
     }
   };
 
@@ -154,6 +223,48 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
     }
   }, [previewLine, color, brushSize]);
 
+  // Emit draw events
+  const emitDrawEvent = (event: Omit<DrawEvent, 'userId'>) => {
+    if (!socketRef.current || !userIdRef.current) return;
+    socketRef.current.emit('draw-event', {
+      ...event,
+      userId: userIdRef.current,
+    });
+  };
+
+  // Handle remote draw events
+  const handleRemoteDrawEvent = (event: DrawEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    if (event.type === 'clear') {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      return;
+    }
+    if (event.type === 'draw' || event.type === 'erase') {
+      ctx.strokeStyle = event.type === 'erase' ? '#fff' : event.color;
+      ctx.lineWidth = event.brushSize;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      const [start, ...rest] = event.points;
+      ctx.moveTo(start.x, start.y);
+      rest.forEach((pt) => ctx.lineTo(pt.x, pt.y));
+      ctx.stroke();
+      return;
+    }
+    if (event.type === 'line') {
+      ctx.strokeStyle = event.color;
+      ctx.lineWidth = event.brushSize;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(event.points[0].x, event.points[0].y);
+      ctx.lineTo(event.points[1].x, event.points[1].y);
+      ctx.stroke();
+      return;
+    }
+  };
+
   return (
     <div className='flex flex-col items-center gap-4'>
       <TooltipProvider>
@@ -164,6 +275,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
                 <Button
                   variant={tool === 'pen' ? 'default' : 'outline'}
                   size='icon'
+                  type='button'
                   onClick={() => setTool('pen')}
                   aria-label='Pen'
                 >
@@ -177,6 +289,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
                 <Button
                   variant={tool === 'eraser' ? 'default' : 'outline'}
                   size='icon'
+                  type='button'
                   onClick={() => setTool('eraser')}
                   aria-label='Eraser'
                 >
@@ -190,6 +303,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
                 <Button
                   variant={tool === 'line' ? 'default' : 'outline'}
                   size='icon'
+                  type='button'
                   onClick={() => setTool('line')}
                   aria-label='Line'
                 >
@@ -203,6 +317,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
                 <Button
                   variant='outline'
                   className='ml-2'
+                  type='button'
                   disabled={tool === 'eraser'}
                 >
                   <span
@@ -225,7 +340,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant='outline' className='ml-2'>
+                <Button variant='outline' className='ml-2' type='button'>
                   <span className='w-4 h-4 inline-block rounded-full bg-gray-300 mr-2' />
                   Size: {brushSize}
                 </Button>
@@ -235,7 +350,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
                   min={1}
                   max={20}
                   value={[brushSize]}
-                  onValueChange={([v]) => setBrushSize(v)}
+                  onValueChange={(v: number[]) => setBrushSize(v[0])}
                 />
               </DropdownMenuContent>
             </DropdownMenu>
@@ -244,6 +359,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = () => {
                 <Button
                   variant='destructive'
                   className='ml-4'
+                  type='button'
                   onClick={clearCanvas}
                   aria-label='Clear'
                 >
