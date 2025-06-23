@@ -1,5 +1,4 @@
 import { initTRPC } from '@trpc/server';
-import { fastifyTRPCPlugin } from '@trpc/server/adapters/fastify';
 import { z } from 'zod';
 
 // Initialize tRPC
@@ -17,9 +16,8 @@ export const appRouter = t.router({
 });
 
 export type AppRouter = typeof appRouter;
+export { appRouter };
 
-// Fastify plugin for tRPC
-export const trpcPlugin = fastifyTRPCPlugin<AppRouter>({
-  router: appRouter,
-  createContext: () => ({}),
-});
+export function createContext() {
+  return {};
+}

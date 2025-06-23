@@ -1,6 +1,7 @@
+'use client';
+import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { trpc, trpcClient } from '../lib/trpc';
-import { useEffect, useState } from 'react';
 import { socket } from '../lib/socket';
 
 export default function Home() {

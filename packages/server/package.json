@@ -9,6 +9,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@fastify/cors": "^11.0.1",
     "@prisma/client": "^5.14.0",
     "@supabase/supabase-js": "^2.50.0",
     "@trpc/client": "^11.4.2",

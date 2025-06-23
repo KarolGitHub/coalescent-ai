@@ -1,9 +1,20 @@
 import Fastify, { FastifyRequest, FastifyReply } from 'fastify';
 import { Server, Socket } from 'socket.io';
-import { trpcPlugin } from './trpc';
+import {
+  fastifyTRPCPlugin,
+  FastifyTRPCPluginOptions,
+} from '@trpc/server/adapters/fastify';
+import { appRouter, createContext } from './trpc';
+import cors from '@fastify/cors';
 
 const fastify = Fastify({
   logger: true,
+});
+
+// Register CORS
+fastify.register(cors, {
+  origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+  credentials: true,
 });
 
 const io = new Server(fastify.server);
@@ -22,7 +33,13 @@ fastify.get('/', async (request: FastifyRequest, reply: FastifyReply) => {
   return { hello: 'world' };
 });
 
-fastify.register(trpcPlugin, { prefix: '/trpc' });
+fastify.register(fastifyTRPCPlugin, {
+  prefix: '/trpc',
+  trpcOptions: {
+    router: appRouter,
+    createContext,
+  } satisfies FastifyTRPCPluginOptions<typeof appRouter>['trpcOptions'],
+});
 
 const start = async () => {
   try {
