@@ -21,12 +21,21 @@ import {
   DialogFooter,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  Select,
+  SelectTrigger,
+  SelectContent,
+  SelectItem,
+  SelectValue,
+} from '@/components/ui/select';
 
 interface Whiteboard {
   id: string;
   name: string;
   created_at: string;
 }
+
+type SortOption = 'newest' | 'oldest' | 'az' | 'za';
 
 export default function WhiteboardListPage() {
   const [whiteboards, setWhiteboards] = useState<Whiteboard[]>([]);
@@ -39,21 +48,40 @@ export default function WhiteboardListPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortOption>('newest');
 
   useEffect(() => {
-    const fetchWhiteboards = async () => {
+    const getUserAndBoards = async () => {
       setLoading(true);
       const supabase = createSupabaseBrowserClient();
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      setUserId(uid || null);
+      if (!uid) {
+        setWhiteboards([]);
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from('whiteboards')
         .select('id, name, created_at')
-        .order('created_at', { ascending: false });
+        .eq('created_by', uid);
       if (error) setError(error.message);
       else setWhiteboards(data || []);
       setLoading(false);
     };
-    fetchWhiteboards();
+    getUserAndBoards();
   }, []);
+
+  // Sorting
+  const sortedWhiteboards = [...whiteboards].sort((a, b) => {
+    if (sort === 'newest') return b.created_at.localeCompare(a.created_at);
+    if (sort === 'oldest') return a.created_at.localeCompare(b.created_at);
+    if (sort === 'az') return a.name.localeCompare(b.name);
+    if (sort === 'za') return b.name.localeCompare(a.name);
+    return 0;
+  });
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -139,16 +167,39 @@ export default function WhiteboardListPage() {
           <Plus className='w-4 h-4 mr-1' /> Create
         </Button>
       </form>
+      <div className='flex items-center justify-between mb-4'>
+        <div />
+        <div className='flex items-center gap-2'>
+          <label htmlFor='sort' className='text-sm text-muted-foreground'>
+            Sort:
+          </label>
+          <Select value={sort} onValueChange={(v) => setSort(v as SortOption)}>
+            <SelectTrigger className='w-32 h-9'>
+              <SelectValue placeholder='Sort by' />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value='newest'>Newest</SelectItem>
+              <SelectItem value='oldest'>Oldest</SelectItem>
+              <SelectItem value='az'>Name A-Z</SelectItem>
+              <SelectItem value='za'>Name Z-A</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
       {error && <div className='mb-4 text-red-600'>{error}</div>}
-      {loading ? (
+      {!userId ? (
+        <div className='text-muted-foreground'>
+          Sign in to view your whiteboards.
+        </div>
+      ) : loading ? (
         <div>Loading...</div>
-      ) : whiteboards.length === 0 ? (
+      ) : sortedWhiteboards.length === 0 ? (
         <div className='text-muted-foreground'>
           No whiteboards yet. Create one above!
         </div>
       ) : (
         <div className='grid gap-4'>
-          {whiteboards.map((wb) => (
+          {sortedWhiteboards.map((wb) => (
             <Card
               key={wb.id}
               className='flex flex-row items-center justify-between p-4'
