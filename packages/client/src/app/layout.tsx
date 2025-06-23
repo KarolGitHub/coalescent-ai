@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import ThemeProviderWrapper from './ThemeProviderWrapper';
+import { TrpcProvider } from '@/lib/trpcProvider';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -34,7 +35,9 @@ export default function RootLayout({
         suppressHydrationWarning
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProviderWrapper>{children}</ThemeProviderWrapper>
+        <TrpcProvider>
+          <ThemeProviderWrapper>{children}</ThemeProviderWrapper>
+        </TrpcProvider>
       </body>
     </html>
   );

@@ -1,8 +1,25 @@
+import { createTRPCProxyClient, httpBatchLink } from '@trpc/client';
 import { createTRPCReact } from '@trpc/react-query';
-import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import type { AppRouter } from 'common';
 
 export const trpc = createTRPCReact<AppRouter>();
+
+let clientInstance: ReturnType<typeof createTRPCProxyClient<AppRouter>> | null =
+  null;
+
+export function getTrpcClient() {
+  if (clientInstance) return clientInstance;
+
+  clientInstance = createTRPCProxyClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: getTrpcBaseUrl() + '/trpc',
+      }),
+    ],
+  });
+
+  return clientInstance;
+}
 
 export function getTrpcBaseUrl() {
   if (typeof window !== 'undefined') return '';
@@ -10,12 +27,5 @@ export function getTrpcBaseUrl() {
   return 'http://localhost:3001';
 }
 
-export function getTrpcClient() {
-  return createTRPCClient<AppRouter>({
-    links: [
-      httpBatchLink({
-        url: getTrpcBaseUrl() + '/trpc',
-      }),
-    ],
-  });
-}
+// Export a singleton instance for the provider
+export const trpcClient = getTrpcClient();
