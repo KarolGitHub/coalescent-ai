@@ -15,7 +15,8 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 import { createSupabaseBrowserClient } from '@/lib/supabase';
-import { io, Socket } from 'socket.io-client';
+import { getSocket } from '@/lib/socket';
+import { Socket } from 'socket.io-client';
 
 type Tool = 'pen' | 'eraser' | 'line';
 
@@ -51,6 +52,9 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
   } | null>(null);
   const socketRef = useRef<Socket | null>(null);
   const userIdRef = useRef<string>('');
+  const [strokePoints, setStrokePoints] = useState<{ x: number; y: number }[]>(
+    []
+  );
 
   // Get user ID from Supabase
   useEffect(() => {
@@ -64,7 +68,8 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
 
   // Socket.IO connection
   useEffect(() => {
-    const socket = io('/', { transports: ['websocket'] }); // Change URL if needed
+    const socket = getSocket();
+    if (!socket) return;
     socketRef.current = socket;
     socket.emit('join', { boardId });
 
@@ -72,6 +77,10 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
       // Ignore own events
       if (event.userId === userIdRef.current) return;
       handleRemoteDrawEvent(event);
+    });
+    // Listen for initial load of all events
+    socket.on('load-events', (events: DrawEvent[]) => {
+      events.forEach(handleRemoteDrawEvent);
     });
 
     return () => {
@@ -119,7 +128,9 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
       setPreviewLine(null);
     } else {
       setDrawing(true);
-      setLastPoint(getPos(e));
+      const start = getPos(e);
+      setLastPoint(start);
+      setStrokePoints([start]);
     }
   };
 
@@ -143,14 +154,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
       ctx.moveTo(lastPoint.x, lastPoint.y);
       ctx.lineTo(x, y);
       ctx.stroke();
-      emitDrawEvent({
-        type: tool === 'eraser' ? 'erase' : 'draw',
-        tool,
-        color,
-        brushSize,
-        points: [lastPoint, { x, y }],
-        boardId,
-      });
+      setStrokePoints((pts) => [...pts, { x, y }]);
     }
     setLastPoint({ x, y });
   };
@@ -180,8 +184,19 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
       setPreviewLine(null);
       return;
     }
+    if (drawing && strokePoints.length > 1) {
+      emitDrawEvent({
+        type: tool === 'eraser' ? 'erase' : 'draw',
+        tool,
+        color,
+        brushSize,
+        points: strokePoints,
+        boardId,
+      });
+    }
     setDrawing(false);
     setLastPoint(null);
+    setStrokePoints([]);
   };
 
   const clearCanvas = () => {

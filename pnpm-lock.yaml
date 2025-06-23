@@ -161,6 +161,9 @@ importers:
       '@trpc/server':
         specifier: ^11.4.2
         version: 11.4.2(typescript@5.8.3)
+      dotenv:
+        specifier: ^16.5.0
+        version: 16.5.0
       fastify:
         specifier: ^5.4.0
         version: 5.4.0
