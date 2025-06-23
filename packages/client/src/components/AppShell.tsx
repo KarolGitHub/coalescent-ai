@@ -12,7 +12,7 @@ const navLinks = [
   { href: '/home', label: 'Home', icon: HomeIcon },
   { href: '/tickets', label: 'Tickets', icon: File },
   { href: '/customers', label: 'Customers', icon: UsersRound },
-  { href: '/whiteboard/test', label: 'Whiteboard', icon: LayoutPanelLeft },
+  { href: '/whiteboard', label: 'Whiteboard', icon: LayoutPanelLeft },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
