@@ -10,10 +10,12 @@ export function getTrpcBaseUrl() {
   return 'http://localhost:3001';
 }
 
-export const trpcClient = createTRPCClient<AppRouter>({
-  links: [
-    httpBatchLink({
-      url: getTrpcBaseUrl() + '/trpc',
-    }),
-  ],
-});
+export function getTrpcClient() {
+  return createTRPCClient<AppRouter>({
+    links: [
+      httpBatchLink({
+        url: getTrpcBaseUrl() + '/trpc',
+      }),
+    ],
+  });
+}
