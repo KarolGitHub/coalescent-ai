@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button, buttonVariants } from '@/components/ui/button';
+import type { VariantProps } from 'class-variance-authority';
 import {
   DropdownMenu,
   DropdownMenuTrigger,
@@ -17,6 +18,7 @@ import {
 import { createSupabaseBrowserClient } from '@/lib/supabase';
 import { getSocket } from '@/lib/socket';
 import { Socket } from 'socket.io-client';
+import { Save } from 'lucide-react';
 
 type Tool = 'pen' | 'eraser' | 'line';
 
@@ -29,6 +31,8 @@ type DrawEvent = {
   boardId: string;
   userId: string;
 };
+
+type ButtonVariants = VariantProps<typeof buttonVariants>;
 
 export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
   boardId,
@@ -215,6 +219,64 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
     }
   };
 
+  // Save canvas as PNG
+  const saveAsPNG = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Create a temporary link element
+    const link = document.createElement('a');
+    link.download = `whiteboard-${boardId}-${new Date().toISOString()}.png`;
+    link.href = canvas.toDataURL('image/png');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Save canvas as SVG
+  const saveAsSVG = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    // Create SVG element
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('width', canvas.width.toString());
+    svg.setAttribute('height', canvas.height.toString());
+    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+    // Add white background
+    const background = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'rect'
+    );
+    background.setAttribute('width', '100%');
+    background.setAttribute('height', '100%');
+    background.setAttribute('fill', 'white');
+    svg.appendChild(background);
+
+    // Convert canvas to image and embed in SVG
+    const image = document.createElementNS(
+      'http://www.w3.org/2000/svg',
+      'image'
+    );
+    image.setAttribute('width', '100%');
+    image.setAttribute('height', '100%');
+    image.setAttribute('href', canvas.toDataURL('image/png'));
+    svg.appendChild(image);
+
+    // Convert SVG to string and create download link
+    const svgString = new XMLSerializer().serializeToString(svg);
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `whiteboard-${boardId}-${new Date().toISOString()}.svg`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Draw preview line
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -281,16 +343,30 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
   };
 
   return (
-    <div className='flex flex-col items-center gap-4'>
-      <TooltipProvider>
-        <Card className='mb-2 w-fit p-2 shadow-md'>
-          <CardContent className='flex items-center gap-2 p-0'>
+    <Card className='relative h-full w-full overflow-hidden'>
+      <CardContent className='h-full p-0'>
+        <div className='absolute left-4 top-4 z-10 flex gap-2'>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant='outline' size='icon'>
+                <Save className='h-4 w-4' />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={saveAsPNG}>
+                Save as PNG
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={saveAsSVG}>
+                Save as SVG
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
                   variant={tool === 'pen' ? 'default' : 'outline'}
                   size='icon'
-                  type='button'
                   onClick={() => setTool('pen')}
                   aria-label='Pen'
                 >
@@ -304,7 +380,6 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
                 <Button
                   variant={tool === 'eraser' ? 'default' : 'outline'}
                   size='icon'
-                  type='button'
                   onClick={() => setTool('eraser')}
                   aria-label='Eraser'
                 >
@@ -318,7 +393,6 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
                 <Button
                   variant={tool === 'line' ? 'default' : 'outline'}
                   size='icon'
-                  type='button'
                   onClick={() => setTool('line')}
                   aria-label='Line'
                 >
@@ -332,7 +406,6 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
                 <Button
                   variant='outline'
                   className='ml-2'
-                  type='button'
                   disabled={tool === 'eraser'}
                 >
                   <span
@@ -355,7 +428,7 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
             </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant='outline' className='ml-2' type='button'>
+                <Button variant='outline' className='ml-2'>
                   <span className='w-4 h-4 inline-block rounded-full bg-gray-300 mr-2' />
                   Size: {brushSize}
                 </Button>
@@ -374,7 +447,6 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
                 <Button
                   variant='destructive'
                   className='ml-4'
-                  type='button'
                   onClick={clearCanvas}
                   aria-label='Clear'
                 >
@@ -383,37 +455,42 @@ export const WhiteboardCanvas: React.FC<{ boardId: string }> = ({
               </TooltipTrigger>
               <TooltipContent>Clear the board</TooltipContent>
             </Tooltip>
-          </CardContent>
-        </Card>
-      </TooltipProvider>
-      <div
-        style={{
-          width: 800,
-          height: 500,
-          border: '2px solid #ddd',
-          borderRadius: 8,
-          background: '#fff',
-        }}
-      >
+          </TooltipProvider>
+        </div>
         <canvas
           ref={canvasRef}
-          width={800}
-          height={500}
-          style={{
-            width: '100%',
-            height: '100%',
-            display: 'block',
-            cursor: tool === 'eraser' ? 'cell' : 'crosshair',
-          }}
+          className='h-full w-full touch-none bg-white'
           onMouseDown={startDrawing}
           onMouseMove={draw}
           onMouseUp={stopDrawing}
-          onMouseLeave={stopDrawing}
+          onMouseOut={stopDrawing}
           onTouchStart={startDrawing}
           onTouchMove={draw}
           onTouchEnd={stopDrawing}
         />
-      </div>
-    </div>
+        {previewLine && (
+          <svg
+            className='pointer-events-none absolute left-0 top-0 h-full w-full'
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+            }}
+          >
+            <line
+              x1={previewLine.x1}
+              y1={previewLine.y1}
+              x2={previewLine.x2}
+              y2={previewLine.y2}
+              stroke={color}
+              strokeWidth={brushSize}
+              strokeLinecap='round'
+            />
+          </svg>
+        )}
+      </CardContent>
+    </Card>
   );
 };
