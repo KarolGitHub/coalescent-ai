@@ -37,6 +37,8 @@ interface Whiteboard {
 
 type SortOption = 'newest' | 'oldest' | 'az' | 'za';
 
+const PAGE_SIZE = 6;
+
 export default function WhiteboardListPage() {
   const [whiteboards, setWhiteboards] = useState<Whiteboard[]>([]);
   const [loading, setLoading] = useState(true);
@@ -50,6 +52,8 @@ export default function WhiteboardListPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [sort, setSort] = useState<SortOption>('newest');
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const getUserAndBoards = async () => {
@@ -82,6 +86,19 @@ export default function WhiteboardListPage() {
     if (sort === 'za') return b.name.localeCompare(a.name);
     return 0;
   });
+
+  // Filter and sort
+  const filteredWhiteboards = sortedWhiteboards.filter((wb) =>
+    wb.name.toLowerCase().includes(search.toLowerCase())
+  );
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredWhiteboards.length / PAGE_SIZE)
+  );
+  const paginatedWhiteboards = filteredWhiteboards.slice(
+    (page - 1) * PAGE_SIZE,
+    page * PAGE_SIZE
+  );
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -167,8 +184,16 @@ export default function WhiteboardListPage() {
           <Plus className='w-4 h-4 mr-1' /> Create
         </Button>
       </form>
-      <div className='flex items-center justify-between mb-4'>
-        <div />
+      <div className='flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4'>
+        <Input
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+          placeholder='Search whiteboards...'
+          className='w-full sm:w-64'
+        />
         <div className='flex items-center gap-2'>
           <label htmlFor='sort' className='text-sm text-muted-foreground'>
             Sort:
@@ -193,54 +218,75 @@ export default function WhiteboardListPage() {
         </div>
       ) : loading ? (
         <div>Loading...</div>
-      ) : sortedWhiteboards.length === 0 ? (
-        <div className='text-muted-foreground'>
-          No whiteboards yet. Create one above!
-        </div>
+      ) : filteredWhiteboards.length === 0 ? (
+        <div className='text-muted-foreground'>No whiteboards found.</div>
       ) : (
-        <div className='grid gap-4'>
-          {sortedWhiteboards.map((wb) => (
-            <Card
-              key={wb.id}
-              className='flex flex-row items-center justify-between p-4'
-            >
-              <div>
-                <CardTitle className='text-lg mb-1'>
-                  <Link
-                    href={`/whiteboard/${wb.id}`}
-                    className='hover:underline'
+        <>
+          <div className='grid gap-4'>
+            {paginatedWhiteboards.map((wb) => (
+              <Card
+                key={wb.id}
+                className='flex flex-row items-center justify-between p-4'
+              >
+                <div>
+                  <CardTitle className='text-lg mb-1'>
+                    <Link
+                      href={`/whiteboard/${wb.id}`}
+                      className='hover:underline'
+                    >
+                      {wb.name}
+                    </Link>
+                  </CardTitle>
+                  <CardDescription className='text-xs'>
+                    Created {new Date(wb.created_at).toLocaleString()}
+                  </CardDescription>
+                </div>
+                <div className='flex gap-2'>
+                  <Button variant='outline' size='sm' asChild>
+                    <Link href={`/whiteboard/${wb.id}`}>Open</Link>
+                  </Button>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    aria-label='Rename'
+                    onClick={() => openEditDialog(wb)}
                   >
-                    {wb.name}
-                  </Link>
-                </CardTitle>
-                <CardDescription className='text-xs'>
-                  Created {new Date(wb.created_at).toLocaleString()}
-                </CardDescription>
-              </div>
-              <div className='flex gap-2'>
-                <Button variant='outline' size='sm' asChild>
-                  <Link href={`/whiteboard/${wb.id}`}>Open</Link>
-                </Button>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  aria-label='Rename'
-                  onClick={() => openEditDialog(wb)}
-                >
-                  <Pencil className='w-4 h-4' />
-                </Button>
-                <Button
-                  variant='ghost'
-                  size='icon'
-                  aria-label='Delete'
-                  onClick={() => openDeleteDialog(wb.id)}
-                >
-                  <Trash2 className='w-4 h-4 text-red-500' />
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
+                    <Pencil className='w-4 h-4' />
+                  </Button>
+                  <Button
+                    variant='ghost'
+                    size='icon'
+                    aria-label='Delete'
+                    onClick={() => openDeleteDialog(wb.id)}
+                  >
+                    <Trash2 className='w-4 h-4 text-red-500' />
+                  </Button>
+                </div>
+              </Card>
+            ))}
+          </div>
+          <div className='flex justify-center items-center gap-4 mt-6'>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page === 1}
+            >
+              Previous
+            </Button>
+            <span className='text-sm text-muted-foreground'>
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages}
+            >
+              Next
+            </Button>
+          </div>
+        </>
       )}
       {/* Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
