@@ -17,50 +17,37 @@ export function SignUpForm() {
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    setMessage(null);
 
     try {
       const supabase = createSupabaseBrowserClient();
 
-      const {
-        data: { user },
-        error: signUpError,
-      } = await supabase.auth.signUp({
+      // Sign up the user
+      const { error: signUpError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
           },
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
-      if (signUpError) {
-        throw signUpError;
-      }
+      if (signUpError) throw signUpError;
 
-      if (user) {
-        // Create a profile for the user
-        const { error: profileError } = await supabase.from('profiles').insert([
-          {
-            id: user.id,
-            email: user.email,
-            full_name: fullName,
-            created_at: new Date().toISOString(),
-          },
-        ]);
-
-        if (profileError) {
-          throw profileError;
-        }
-      }
-
-      // Redirect will be handled by the session change
+      // Show success message
+      setMessage(
+        'Please check your email for a confirmation link. The link will expire in 1 hour.'
+      );
     } catch (err) {
+      console.error('Signup error:', err);
       setError(
         err instanceof Error ? err.message : 'An error occurred during sign up'
       );
@@ -115,6 +102,12 @@ export function SignUpForm() {
               minLength={6}
             />
           </div>
+
+          {message && (
+            <div className='text-sm text-green-600 bg-green-50 p-3 rounded-md'>
+              {message}
+            </div>
+          )}
 
           {error && (
             <div className='text-sm text-red-600 bg-red-50 p-3 rounded-md'>

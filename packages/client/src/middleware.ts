@@ -12,6 +12,11 @@ export async function middleware(req: NextRequest) {
     data: { session },
   } = await supabase.auth.getSession();
 
+  // Handle auth callback
+  if (req.nextUrl.pathname === '/auth/callback') {
+    return res;
+  }
+
   // If the user is not signed in and the current path is not /auth,
   // redirect the user to /auth
   if (!session && req.nextUrl.pathname !== '/auth') {

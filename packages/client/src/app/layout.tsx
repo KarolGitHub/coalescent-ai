@@ -4,6 +4,7 @@ import './globals.css';
 import { ThemeProvider } from '@/components/theme-provider';
 import { AuthProvider } from '@/components/auth/AuthProvider';
 import { TrpcProvider } from '@/lib/trpcProvider';
+import { Toaster } from '@/components/ui/toast';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -42,6 +43,7 @@ export default function RootLayout({
             <AuthProvider>{children}</AuthProvider>
           </ThemeProvider>
         </TrpcProvider>
+        <Toaster />
       </body>
     </html>
   );
