@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
-import ThemeProviderWrapper from './ThemeProviderWrapper';
+import { ThemeProvider } from '@/components/theme-provider';
+import { AuthProvider } from '@/components/auth/AuthProvider';
 import { TrpcProvider } from '@/lib/trpcProvider';
 
 const geistSans = localFont({
@@ -16,19 +17,15 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: {
-    template: '%s | CoalescentAI',
-    default: 'CoalescentAI',
-  },
-  description: 'CoalescentAI',
-  applicationName: 'CoalescentAI',
+  title: 'Coalescent AI',
+  description: 'AI-powered team collaboration hub',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang='en' suppressHydrationWarning>
       <body
@@ -36,7 +33,14 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <TrpcProvider>
-          <ThemeProviderWrapper>{children}</ThemeProviderWrapper>
+          <ThemeProvider
+            attribute='class'
+            defaultTheme='system'
+            enableSystem
+            disableTransitionOnChange
+          >
+            <AuthProvider>{children}</AuthProvider>
+          </ThemeProvider>
         </TrpcProvider>
       </body>
     </html>
