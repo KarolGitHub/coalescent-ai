@@ -1,3 +1,8 @@
+// fastify-swagger has no types, so declare the module locally
+// eslint-disable-next-line @typescript-eslint/triple-slash-reference
+// @ts-ignore
+declare module 'fastify-swagger';
+
 import { fastify as Fastify } from 'fastify';
 import { Server, Socket } from 'socket.io';
 import {
@@ -6,6 +11,9 @@ import {
 } from '@trpc/server/adapters/fastify';
 import { appRouter, createContext } from './trpc.js';
 import cors from '@fastify/cors';
+// @ts-expect-error: fastify-swagger has no types
+import fastifySwagger from 'fastify-swagger';
+import { generateOpenApiDocument } from 'trpc-openapi';
 
 const server = Fastify({
   logger: true,
@@ -23,8 +31,34 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
+/**
+ * @openapi
+ * /:
+ *   get:
+ *     summary: Root endpoint
+ *     description: Returns a hello world message.
+ *     tags:
+ *       - Misc
+ *     responses:
+ *       200:
+ *         description: Hello world response
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 hello:
+ *                   type: string
+ */
+// Note: This route is not covered by tRPC/OpenAPI generator. Consider migrating to tRPC for full Swagger support.
 server.get('/', async (request, reply) => {
-  return { hello: 'world' };
+  return reply.redirect('/docs');
+});
+
+const openApiDocument = generateOpenApiDocument(appRouter, {
+  title: 'Coalescent AI API',
+  version: '1.0.0',
+  baseUrl: 'http://localhost:3001',
 });
 
 const start = async () => {
@@ -33,6 +67,21 @@ const start = async () => {
     await server.register(cors, {
       origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
       credentials: true,
+    });
+
+    // Register fastify-swagger for Swagger UI
+    await server.register(fastifySwagger, {
+      mode: 'static',
+      specification: {
+        document: openApiDocument,
+      },
+      routePrefix: '/docs',
+      exposeRoute: true,
+    });
+
+    // Serve OpenAPI JSON
+    server.get('/openapi.json', async (request, reply) => {
+      return openApiDocument;
     });
 
     await server.register(fastifyTRPCPlugin, {
