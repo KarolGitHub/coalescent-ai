@@ -14,20 +14,64 @@ import cors from '@fastify/cors';
 // @ts-expect-error: fastify-swagger has no types
 import fastifySwagger from 'fastify-swagger';
 import { generateOpenApiDocument } from 'trpc-openapi';
+import { supabase } from './supabase.js';
+import 'dotenv/config';
 
 const server = Fastify({
   logger: true,
 });
 
-const io = new Server(server.server);
+const io = new Server(server.server, {
+  cors: { origin: '*' },
+});
 
+// Handle Socket.IO connections
 io.on('connection', (socket: Socket) => {
-  console.log('a user connected');
-  socket.on('ping', () => {
-    socket.emit('pong');
+  // Join a whiteboard room
+  socket.on('join', async ({ boardId }) => {
+    socket.join(boardId);
+    // Load all events for this board
+    const { data: events } = await supabase
+      .from('whiteboard_events')
+      .select('event')
+      .eq('board_id', boardId)
+      .order('created_at', { ascending: true });
+    // Send to the joining client only
+    if (events) {
+      socket.emit(
+        'load-events',
+        events.map((e) => e.event)
+      );
+    }
   });
+
+  // Leave a whiteboard room
+  socket.on('leave', ({ boardId }) => {
+    socket.leave(boardId);
+  });
+
+  // Relay drawing events to others in the room and persist to DB
+  socket.on('draw-event', async (event) => {
+    console.log('draw-event received:', event); // Log incoming event
+    if (event.boardId && event.userId) {
+      const { error } = await supabase.from('whiteboard_events').insert({
+        board_id: event.boardId,
+        user_id: event.userId,
+        event,
+      });
+      if (error) {
+        console.error('Error saving event to DB:', error);
+      } else {
+        console.log('Event saved to DB for board:', event.boardId);
+      }
+      // Broadcast to others
+      socket.to(event.boardId).emit('draw-event', event);
+    }
+  });
+
+  // (Optional) Handle disconnects for presence
   socket.on('disconnect', () => {
-    console.log('user disconnected');
+    // You can broadcast a presence update here if needed
   });
 });
 
