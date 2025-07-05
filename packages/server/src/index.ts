@@ -11,8 +11,8 @@ import {
 } from '@trpc/server/adapters/fastify';
 import { appRouter, createContext } from './trpc.js';
 import cors from '@fastify/cors';
-// @ts-expect-error: fastify-swagger has no types
-import fastifySwagger from 'fastify-swagger';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import { generateOpenApiDocument } from 'trpc-openapi';
 import { supabase } from './supabase.js';
 import 'dotenv/config';
@@ -113,14 +113,18 @@ const start = async () => {
       credentials: true,
     });
 
-    // Register fastify-swagger for Swagger UI
-    await server.register(fastifySwagger, {
-      mode: 'static',
-      specification: {
-        document: openApiDocument,
-      },
+    // Register @fastify/swagger for OpenAPI spec
+    await server.register(swagger, {
+      openapi: openApiDocument,
+    });
+
+    // Register @fastify/swagger-ui for Swagger UI
+    await server.register(swaggerUi, {
       routePrefix: '/docs',
-      exposeRoute: true,
+      uiConfig: {
+        docExpansion: 'full',
+        deepLinking: false,
+      },
     });
 
     // Serve OpenAPI JSON
