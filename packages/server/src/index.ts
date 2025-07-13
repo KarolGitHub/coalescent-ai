@@ -118,9 +118,9 @@ const start = async () => {
       openapi: openApiDocument,
     });
 
-    // Register @fastify/swagger-ui for Swagger UI
+    // Register @fastify/swagger-ui for Swagger UI at root
     await server.register(swaggerUi, {
-      routePrefix: '/docs',
+      routePrefix: '/',
       uiConfig: {
         docExpansion: 'full',
         deepLinking: false,
