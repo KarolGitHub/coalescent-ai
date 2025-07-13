@@ -75,30 +75,6 @@ io.on('connection', (socket: Socket) => {
   });
 });
 
-/**
- * @openapi
- * /:
- *   get:
- *     summary: Root endpoint
- *     description: Returns a hello world message.
- *     tags:
- *       - Misc
- *     responses:
- *       200:
- *         description: Hello world response
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 hello:
- *                   type: string
- */
-// Note: This route is not covered by tRPC/OpenAPI generator. Consider migrating to tRPC for full Swagger support.
-server.get('/', async (request, reply) => {
-  return reply.redirect('/docs');
-});
-
 const openApiDocument = generateOpenApiDocument(appRouter, {
   title: 'Coalescent AI API',
   version: '1.0.0',
